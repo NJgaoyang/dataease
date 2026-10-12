@@ -39,6 +39,10 @@ public class EnhanceSchema {
         if (settings.getSessionMinutes() < 5 || settings.getSessionMinutes() > 1440) {
             throw new IllegalStateException("session-minutes must be in 5..1440");
         }
+        if (settings.getMaxLoginFailures() < 1 || settings.getMaxLoginFailures() > 100 ||
+                settings.getLockMinutes() < 1 || settings.getLockMinutes() > 1440) {
+            throw new IllegalStateException("Invalid login failure/lockout policy");
+        }
         jdbc.execute("CREATE TABLE IF NOT EXISTS de_ext_schema_version (" +
                 "version VARCHAR(30) NOT NULL PRIMARY KEY, applied_at BIGINT NOT NULL)");
         Integer migrated = jdbc.queryForObject(

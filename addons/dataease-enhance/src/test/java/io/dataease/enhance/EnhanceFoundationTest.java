@@ -87,4 +87,83 @@ class EnhanceFoundationTest {
         new EnhanceSchema(jdbc,jdbc.getDataSource(),bcrypt,settings).initialize();
         assertEquals(original,jdbc.queryForObject("SELECT password_hash FROM de_ext_user WHERE id=1",String.class));
     }
+
+    @Test
+    void lockedAccountInvalidatesEvenUnexpiredToken() {
+        TokenVO token = identity.login("admin", "bootstrap-password-12345");
+        jdbc.update("UPDATE de_ext_user SET locked_until=? WHERE id=1",
+                System.currentTimeMillis() + 60000L);
+        assertThrows(ResponseStatusException.class, () -> identity.verify(token.getToken()));
+    }
+
+    @Test
+    void organizationAdminCanManageOnlyOwnOrganization() {
+        var encoder = new BCryptPasswordEncoder(4);
+        long orgA = ids.next();
+        long orgB = ids.next();
+        jdbc.update("INSERT INTO de_ext_org(id,parent_id,name,enabled) VALUES (?,?,?,1)",orgA,1L,"A");
+        jdbc.update("INSERT INTO de_ext_org(id,parent_id,name,enabled) VALUES (?,?,?,1)",orgB,1L,"B");
+        long orgAdminRole = ids.next();
+        jdbc.update("INSERT INTO de_ext_role(id,org_id,code,name,system_role) VALUES (?,?,?,?,1)",
+                orgAdminRole, orgA, "ORG_ADMIN", "组织管理员");
+        long adminId = ids.next();
+        jdbc.update("INSERT INTO de_ext_user(id,account,display_name,password_hash,enabled,failed_attempts,locked_until,token_version,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                adminId,"org_admin","Org Admin",encoder.encode("a-strong-test-password"),1,0,0L,0,System.currentTimeMillis());
+        jdbc.update("INSERT INTO de_ext_membership(user_id,org_id) VALUES (?,?)",adminId,orgA);
+        jdbc.update("INSERT INTO de_ext_user_role(user_id,role_id) VALUES (?,?)",adminId,orgAdminRole);
+
+        var controller = new EnhanceOrgGovernanceController(jdbc,acl,ids);
+        var token = identity.login("org_admin","a-strong-test-password");
+        EnhanceSession.set(identity.verify(token.getToken()));
+        try {
+            assertTrue(acl.organizationAdmin(adminId,orgA));
+            assertFalse(acl.organizationAdmin(adminId,orgB));
+            assertThrows(ResponseStatusException.class, () -> controller.createRole(
+                    new EnhanceOrgGovernanceController.RoleCreate(orgB,"Forbidden")));
+            long roleId = Long.parseLong(controller.createRole(
+                    new EnhanceOrgGovernanceController.RoleCreate(orgA,"Custom reader")).get("id"));
+            assertEquals(1,jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM de_ext_role WHERE id=? AND org_id=?",Integer.class,roleId,orgA));
+            assertThrows(ResponseStatusException.class, () -> controller.replaceMemberRoles(
+                    new EnhanceOrgGovernanceController.RoleChange(orgA,adminId,java.util.List.of(1L))));
+            assertThrows(ResponseStatusException.class, () -> controller.replaceMemberRoles(
+                    new EnhanceOrgGovernanceController.RoleChange(orgB,adminId,java.util.List.of())));
+            // No impersonation: request-scoped user ID always comes from a validated token.
+            assertEquals(adminId,EnhanceSession.current().userId());
+        } finally {
+            EnhanceSession.clear();
+        }
+    }
+
+    @Test
+    void nonAdminCannotListOthersEvenWhenMember() {
+        long uid = ids.next();
+        jdbc.update("INSERT INTO de_ext_user(id,account,display_name,password_hash,enabled,failed_attempts,locked_until,token_version,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                uid,"ordinary","Ordinary","bcrypt-unused",1,0,0L,0,System.currentTimeMillis());
+        jdbc.update("INSERT INTO de_ext_membership(user_id,org_id) VALUES (?,?)",uid,1L);
+        EnhanceSession.set(new EnhanceSession.Identity(uid,1L,"ordinary",false));
+        try {
+            assertThrows(ResponseStatusException.class,()->acl.requireOrgAdmin(1L));
+            assertFalse(acl.permitted("dataset","123","read",1L));
+            assertFalse(acl.menuAllowed("SYSUSER",1L));
+        } finally {
+            EnhanceSession.clear();
+        }
+    }
+
+    @Test
+    void adminMayConfigureOrgAdminMenuWithoutChangingGlobalSysAdmin() {
+        var bcrypt=new BCryptPasswordEncoder(4);
+        var adminController=new EnhanceAdminController(jdbc,ids,acl,bcrypt);
+        EnhanceSession.set(identity.verify(identity.login("admin","bootstrap-password-12345").getToken()));
+        try {
+            adminController.replaceMenus(2L,java.util.List.of("DATA"));
+            assertEquals(1,jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM de_ext_menu_acl WHERE role_id=2 AND menu_code='DATA'",Integer.class));
+            assertThrows(ResponseStatusException.class,()->
+                adminController.replaceMenus(1L,java.util.List.of("ANY")));
+        } finally {
+            EnhanceSession.clear();
+        }
+    }
 }

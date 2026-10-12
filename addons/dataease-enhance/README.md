@@ -80,3 +80,25 @@ High-risk integration tests still needed before enabling in a public deployment:
 existing share/embed flows, dynamic menus, dataset/chart row-column security,
 multi-organization authorization propagation, login RSA exchange,
 and all affected WebSocket consumers.
+
+## Follow-up hardening and integration checks
+
+- JWT issue/expiration uses \`java.util.Date\`, compatible with the pinned \`java-jwt 3.12.1\`.
+- Login failures update the lockout counter atomically. Expired/untrusted/disabled/locked sessions fail closed.
+- \`EnhanceOrgGovernanceController\` adds organization-scoped member/role operations.
+- \`EnhanceRoleServer\` extends compatibility with the existing \`RoleApi\` paths
+  (detail, role CRUD, role selection, user binding/unbinding).
+- Org administrators cannot assign global \`SYS_ADMIN\` or mutate a different organization.
+- Ordinary members cannot list every member's account details.
+- \`/sysParameter/defaultSettings\` may be read by an authenticated normal user
+  because the Vue login bootstrap requires it; secret-bearing settings remain denied.
+
+The source-level isolation check uses cached Spring JDBC / H2 / BCrypt / JWT
+jars with a temporary minimal SDK \`TokenVO\` stub. Nine committed H2-focused
+JUnit cases were executed via a local JUnit-reflection harness with no database
+or external network. This is **not** a substitute for the repository Maven
+reactor build or a full HTTP/controller integration test.
+
+**Production switch remains off by default.** Legacy dataset/chart permission
+enforcement is still pending and non-admin access to those core API paths remains
+explicitly blocked. Activation is for isolated development only.

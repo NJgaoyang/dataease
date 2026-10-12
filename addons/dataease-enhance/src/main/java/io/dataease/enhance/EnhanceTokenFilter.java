@@ -42,7 +42,7 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
         return path.startsWith("/enhance/") ||
                 java.util.Set.of("/user/info", "/user/personInfo", "/user/ipInfo",
                     "/user/orgAdmin", "/org/mounted", "/org/page/tree",
-                    "/menu/query", "/role/query",
+                    "/menu/query", "/role/query", "/sysParameter/defaultSettings",
                     "/org/logScope", "/org/subOrgs", "/logout", "/login/refresh").contains(path) ||
                 path.startsWith("/user/switch/") ||
                 path.startsWith("/role/queryWithOid/") ||

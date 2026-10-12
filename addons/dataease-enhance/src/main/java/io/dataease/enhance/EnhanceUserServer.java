@@ -74,7 +74,8 @@ public class EnhanceUserServer {
         if (query!=null && query.get("oid")!=null) {
             oid=Long.parseLong(query.get("oid").toString());
         }
-        if (!p.superAdmin() && !acl.member(p.userId(),oid)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        // Listing an organization's members is a management privilege, not a membership privilege.
+        acl.requireOrgAdmin(oid);
         Long total=jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user u JOIN de_ext_membership m ON m.user_id=u.id WHERE m.org_id=?",
                 Long.class,oid);
         List<UserGridVO> results=new ArrayList<>();

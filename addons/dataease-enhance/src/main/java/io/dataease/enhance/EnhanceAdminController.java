@@ -61,15 +61,16 @@ public class EnhanceAdminController {
         if(request==null || request.account()==null || !ACCOUNT.matcher(request.account()).matches())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid account");
         String name=nonblank(request.name(),255);
+        String account=request.account().trim().toLowerCase(Locale.ROOT);
         if(request.password()==null || request.password().length()<12)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Password must have 12+ characters");
         long oid=request.orgId()==null?EnhanceSession.current().orgId():request.orgId();
         countMustBeOne("SELECT COUNT(*) FROM de_ext_org WHERE id=? AND enabled=1",oid);
         long uid=ids.next();
-        Integer exists=jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user WHERE account=?",Integer.class,request.account());
+        Integer exists=jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user WHERE account=?",Integer.class,account);
         if(exists!=null && exists>0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Account exists");
         jdbc.update("INSERT INTO de_ext_user (id,account,display_name,password_hash,enabled,failed_attempts,locked_until,token_version,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                uid,request.account(),name,encoder.encode(request.password()),1,0,0L,0,System.currentTimeMillis());
+                uid,account,name,encoder.encode(request.password()),1,0,0L,0,System.currentTimeMillis());
         jdbc.update("INSERT INTO de_ext_membership (user_id,org_id) VALUES (?,?)",uid,oid);
         audit("USER_CREATE",String.valueOf(uid));
         return Map.of("id",String.valueOf(uid));
@@ -203,8 +204,12 @@ public class EnhanceAdminController {
         audit("ROLE_REVOKE",uid+":"+rid);
     }
 
+    /**
+     * The platform admin may configure an organization's built-in ORG_ADMIN role,
+     * but the global SYS_ADMIN role cannot be modified through an ACL grant.
+     */
     private void customRole(long id) {
-        countMustBeOne("SELECT COUNT(*) FROM de_ext_role WHERE id=? AND system_role=0",id);
+        countMustBeOne("SELECT COUNT(*) FROM de_ext_role WHERE id=? AND code <> 'SYS_ADMIN'",id);
     }
 
     @Transactional
