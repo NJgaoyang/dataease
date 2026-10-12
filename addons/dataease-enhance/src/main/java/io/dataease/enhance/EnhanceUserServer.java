@@ -54,7 +54,8 @@ public class EnhanceUserServer {
         vo.setName(String.valueOf(u.get("display_name")));
         vo.setEnable(true);
         vo.setModel("enhance");
-        vo.setRoleIds(jdbc.queryForList("SELECT CAST(role_id AS CHAR) FROM de_ext_user_role WHERE user_id=?",String.class,uid));
+        vo.setRoleIds(jdbc.queryForList("SELECT role_id FROM de_ext_user_role WHERE user_id=?",Long.class,uid)
+                .stream().map(String::valueOf).toList());
         return vo;
     }
 

@@ -65,7 +65,8 @@ public class EnhanceOrgServer {
     @GetMapping("/subOrgs")
     public List<String> subOrgs() {
         var p=EnhanceSession.current();
-        return jdbc.queryForList("SELECT CAST(org_id AS CHAR) FROM de_ext_membership WHERE user_id=?",String.class,p.userId());
+        return jdbc.queryForList("SELECT org_id FROM de_ext_membership WHERE user_id=?",Long.class,p.userId())
+                .stream().map(String::valueOf).toList();
     }
 
     @GetMapping("/logScope")
