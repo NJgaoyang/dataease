@@ -7,6 +7,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @ConditionalOnMissingBean(name = "loginServer")
+@ConditionalOnProperty(prefix = "dataease.enhance", name = "enabled", havingValue = "false", matchIfMissing = true)
 @Configuration
 public class SubstituleLoginConfig {
     private static final String PWD_KEY = "pwd";

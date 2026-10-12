@@ -39,8 +39,16 @@ public class EnhanceSchema {
         if (settings.getSessionMinutes() < 5 || settings.getSessionMinutes() > 1440) {
             throw new IllegalStateException("session-minutes must be in 5..1440");
         }
-        new ResourceDatabasePopulator(new ClassPathResource("db/enhance/V001__identity_org_acl.sql"))
-                .execute(dataSource);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS de_ext_schema_version (" +
+                "version VARCHAR(30) NOT NULL PRIMARY KEY, applied_at BIGINT NOT NULL)");
+        Integer migrated = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM de_ext_schema_version WHERE version=?",Integer.class,"V001");
+        if (migrated == null || migrated == 0) {
+            new ResourceDatabasePopulator(new ClassPathResource("db/enhance/V001__identity_org_acl.sql"))
+                    .execute(dataSource);
+            jdbc.update("INSERT INTO de_ext_schema_version (version,applied_at) VALUES (?,?)",
+                    "V001",System.currentTimeMillis());
+        }
         // Bootstrap only an entirely fresh enhance store. No implicit or hard-coded password.
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user", Integer.class);
         if (count != null && count == 0) {

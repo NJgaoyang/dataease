@@ -58,13 +58,13 @@ New enhanced APIs (all require `X-DE-TOKEN`):
 - `GET /enhance/admin/audit`.
 
 User/organization changes revoke existing sessions as appropriate.
-ACL is deny-by-default for non-system administrators. Resource data filters
+ACL is deny-by-default for non-system administrators. Dynamic menu visibility is integrated in `MenuServer`; backend ACL checks remain the actual security boundary. Resource data filters
 and legacy chart/dataset server-side `@DePermit` enforcement are **not fully
 integrated** yet; do not call this a completed production RBAC deployment.
 
 ## Data ownership
 
-Versioned additive SQL: `src/main/resources/db/enhance/V001__identity_org_acl.sql`.
+Versioned additive SQL (tracked in `de_ext_schema_version`): `src/main/resources/db/enhance/V001__identity_org_acl.sql`.
 Tables use `de_ext_*` prefixes and do not mutate DataEase-owned tables.
 Bootstrap only inserts the initial organization/admin when enhanced user table
 is empty. Back up database and perform schema migration dry-runs before rolling out.
