@@ -126,10 +126,15 @@ public class EnhanceAdminController {
         countMustBeOne("SELECT COUNT(*) FROM de_ext_org WHERE id=?",id);
         for(String sql:List.of("SELECT COUNT(*) FROM de_ext_org WHERE parent_id=?",
                 "SELECT COUNT(*) FROM de_ext_membership WHERE org_id=?",
-                "SELECT COUNT(*) FROM de_ext_role WHERE org_id=?")) {
+                "SELECT COUNT(*) FROM de_ext_role WHERE org_id=? AND system_role=0",
+                "SELECT COUNT(*) FROM de_ext_user_role ur JOIN de_ext_role r ON r.id=ur.role_id WHERE r.org_id=?",
+                "SELECT COUNT(*) FROM de_ext_menu_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?",
+                "SELECT COUNT(*) FROM de_ext_resource_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?")) {
             Integer count=jdbc.queryForObject(sql,Integer.class,id);
             if(count!=null && count>0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Organization is not empty");
         }
+        // Only the internally-created, unused ORG_ADMIN role may be removed.
+        jdbc.update("DELETE FROM de_ext_role WHERE org_id=? AND code='ORG_ADMIN' AND system_role=1",id);
         jdbc.update("DELETE FROM de_ext_org WHERE id=?",id);
         audit("ORG_DELETE",String.valueOf(id));
     }

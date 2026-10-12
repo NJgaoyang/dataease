@@ -166,4 +166,58 @@ class EnhanceFoundationTest {
             EnhanceSession.clear();
         }
     }
+
+    @Test
+    void apiFilterBlocksAnonymousAndNonAdminCoreQueries() throws Exception {
+        var filter = new EnhanceTokenFilter(identity);
+        var anonymous = new org.springframework.mock.web.MockHttpServletRequest("POST","/de2api/chart/data");
+        var noToken = new org.springframework.mock.web.MockHttpServletResponse();
+        filter.doFilter(anonymous,noToken,new org.springframework.mock.web.MockFilterChain());
+        assertEquals(401,noToken.getStatus());
+        assertNull(EnhanceSession.peek());
+
+        long uid=ids.next();
+        var bcrypt=new BCryptPasswordEncoder(4);
+        jdbc.update("INSERT INTO de_ext_user (id,account,display_name,password_hash,enabled,failed_attempts,locked_until,token_version,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                uid,"viewer","Viewer",bcrypt.encode("viewer-test-password-123"),1,0,0L,0,System.currentTimeMillis());
+        jdbc.update("INSERT INTO de_ext_membership (user_id,org_id) VALUES (?,?)",uid,1L);
+        String normalToken=identity.login("viewer","viewer-test-password-123").getToken();
+
+        var noCoreAccess = new org.springframework.mock.web.MockHttpServletRequest("POST","/de2api/chart/data");
+        noCoreAccess.addHeader("X-DE-TOKEN",normalToken);
+        var denied = new org.springframework.mock.web.MockHttpServletResponse();
+        filter.doFilter(noCoreAccess,denied,new org.springframework.mock.web.MockFilterChain());
+        assertEquals(403,denied.getStatus());
+        assertNull(EnhanceSession.peek());
+
+        var safeSettings = new org.springframework.mock.web.MockHttpServletRequest(
+                "GET","/de2api/sysParameter/defaultSettings");
+        safeSettings.addHeader("X-DE-TOKEN",normalToken);
+        var permitted = new org.springframework.mock.web.MockHttpServletResponse();
+        filter.doFilter(safeSettings,permitted,new org.springframework.mock.web.MockFilterChain());
+        assertEquals(200,permitted.getStatus());
+        assertNull(EnhanceSession.peek());
+
+        var publicKey = new org.springframework.mock.web.MockHttpServletRequest("GET","/de2api/dekey");
+        var publicResult = new org.springframework.mock.web.MockHttpServletResponse();
+        filter.doFilter(publicKey,publicResult,new org.springframework.mock.web.MockFilterChain());
+        assertEquals(200,publicResult.getStatus());
+        assertNull(EnhanceSession.peek());
+    }
+    @Test
+    void organizationAdapterCreatesAndRefusesOccupiedDeletion() {
+        var admin = new EnhanceAdminController(jdbc,ids,acl,new BCryptPasswordEncoder(4));
+        var adapter = new EnhanceOrgCompatServer(jdbc,acl,admin);
+        EnhanceSession.set(identity.verify(identity.login("admin","bootstrap-password-12345").getToken()));
+        try {
+            var request = new io.dataease.api.permissions.org.dto.OrgCreator();
+            request.setName("Operations");
+            request.setPid(1L);
+            Long oid = adapter.create(request);
+            assertFalse(adapter.resourceExist(oid));
+            admin.addUser(new EnhanceAdminController.NewUser("worker","Worker","long-password-1234",oid));
+            assertTrue(adapter.resourceExist(oid));
+            assertThrows(ResponseStatusException.class, ()->admin.deleteOrg(oid));
+        } finally { EnhanceSession.clear(); }
+    }
 }

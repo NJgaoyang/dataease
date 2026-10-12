@@ -102,3 +102,19 @@ reactor build or a full HTTP/controller integration test.
 **Production switch remains off by default.** Legacy dataset/chart permission
 enforcement is still pending and non-admin access to those core API paths remains
 explicitly blocked. Activation is for isolated development only.
+
+### Additional legacy organization adapter
+
+`EnhanceOrgCompatServer` implements the existing `/org/page/create`,
+`/org/page/edit`, `/org/page/delete`, `/org/page/lazyTree`,
+`/org/detail/{oid}` and `/org/resourceExist/{oid}` entry points using
+only `de_ext_*` relationships. A built-in ORG_ADMIN role may be removed
+when its organization has no members, custom roles, grants or child
+organizations. A nonempty organization cannot be deleted. `delResource=true`
+is rejected: it will **not** remove upstream BI resources. The resource
+existence check covers enhancement-owned relations, not all upstream BI
+metadata; broader organization/resource migrations still need explicit integration.
+
+The isolated H2 regression suite now includes 11 focused tests,
+including HTTP filter checks for anonymous/ordinary users and a
+nonempty-organization deletion guard.
