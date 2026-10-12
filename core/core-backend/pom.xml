@@ -60,6 +60,12 @@
             <artifactId>api-permissions</artifactId>
             <version>${dataease.version}</version>
         </dependency>
+        <!-- Optional community-owned identity / organization / ACL layer -->
+        <dependency>
+            <groupId>io.dataease</groupId>
+            <artifactId>dataease-enhance</artifactId>
+            <version>${dataease.version}</version>
+        </dependency>
         <dependency>
             <groupId>io.dataease</groupId>
             <artifactId>api-sync</artifactId>

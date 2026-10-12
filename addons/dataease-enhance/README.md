@@ -1,0 +1,82 @@
+# DataEase Enhance — phase 1: identity, organization and ACL foundations
+
+This module is original self-developed code. It does not depend on proprietary `de-xpack` sources or disable third-party license checks.
+
+## Deployment and activation
+
+Default: `dataease.enhance.enabled=false`. Nothing is registered unless explicitly enabled.
+Run database backup before first activation. Enhanced login uses its own credentials and does
+**not** automatically import existing enterprise users or permissions.
+
+Only activate in an isolated non-production environment until the remaining legacy API
+integration has been reviewed. The existing DataEase `de2api` routes are filtered
+when enhancement is enabled; external shared-link compatibility needs its own tests.
+
+Configure via protected environment values (never commit actual values):
+
+```yaml
+dataease:
+  enhance:
+    enabled: ${DE_ENHANCE_ENABLED:false}
+    token-secret: ${DE_ENHANCE_TOKEN_SECRET:}
+    bootstrap-password: ${DE_ENHANCE_BOOTSTRAP_PASSWORD:}
+    session-minutes: 60
+    node-id: 1
+```
+
+`token-secret` must be 32+ characters and must be stable across restarts.
+`bootstrap-password` must be 12+ characters **at first activation**; it is
+never applied again if a user already exists. Store secrets in environment or a
+secret manager; never expose them in browser configuration. Use a unique
+`node-id` (0..1023) per writer.
+
+## Source boundaries
+
+- `addons/dataease-enhance/`: self-owned functionality, migration and tests.
+- `core/pom.xml`, `core/core-backend/pom.xml`: minimal module wiring.
+- Three `core/.../substitute/permissions/*` controllers gain an opt-in
+  condition, preserving community behavior when disabled.
+- No modifications to the proprietary X-Pack submodule.
+
+## API foundation
+
+Original DataEase compatibility:
+`POST /login/localLogin` (RSA transport),
+`GET /login/refresh`, `GET /logout`,
+`GET /user/info`, `GET /user/personInfo`,
+`POST /user/mumberPager/{page}/{size}`, `POST /org/mounted`.
+
+New enhanced APIs (all require `X-DE-TOKEN`):
+- `GET/POST /enhance/admin/users`: list/create user (explicit strong password).
+- `POST /enhance/admin/users/{id}/enabled` and `/reset-password`.
+- `GET/POST /enhance/admin/orgs` and `DELETE /enhance/admin/orgs/{id}`.
+- `POST /enhance/admin/memberships`, `DELETE /enhance/admin/memberships/{uid}/{oid}`.
+- `GET/POST /enhance/admin/roles`, `POST /enhance/admin/assign-role`.
+- `PUT /enhance/admin/roles/{id}/menus` and `/resources`.
+- `GET /enhance/permissions/check`, `GET /enhance/menus/check`.
+- `POST /enhance/me/password`.
+- `GET /enhance/admin/audit`.
+
+User/organization changes revoke existing sessions as appropriate.
+ACL is deny-by-default for non-system administrators. Resource data filters
+and legacy chart/dataset server-side `@DePermit` enforcement are **not fully
+integrated** yet; do not call this a completed production RBAC deployment.
+
+## Data ownership
+
+Versioned additive SQL: `src/main/resources/db/enhance/V001__identity_org_acl.sql`.
+Tables use `de_ext_*` prefixes and do not mutate DataEase-owned tables.
+Bootstrap only inserts the initial organization/admin when enhanced user table
+is empty. Back up database and perform schema migration dry-runs before rolling out.
+
+## Regression tests
+
+```bash
+mvn -f sdk/pom.xml -DskipTests install
+mvn -f addons/dataease-enhance/pom.xml test
+```
+
+High-risk integration tests still needed before enabling in a public deployment:
+existing share/embed flows, dynamic menus, dataset/chart row-column security,
+multi-organization authorization propagation, login RSA exchange,
+and all affected WebSocket consumers.

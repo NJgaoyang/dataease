@@ -11,6 +11,7 @@ import io.dataease.utils.IPUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 import static io.dataease.constant.CacheConstant.UserCacheConstant.USER_COMMUNITY_LANGUAGE;
 
 @Component
+@ConditionalOnProperty(prefix = "dataease.enhance", name = "enabled", havingValue = "false", matchIfMissing = true)
 @ConditionalOnMissingBean(name = "userServer")
 @RestController
 @RequestMapping("/user")

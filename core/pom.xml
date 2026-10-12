@@ -14,6 +14,7 @@
 
     <modules>
         <module>core-frontend</module>
+        <module>../addons/dataease-enhance</module>
         <module>core-backend</module>
     </modules>
 

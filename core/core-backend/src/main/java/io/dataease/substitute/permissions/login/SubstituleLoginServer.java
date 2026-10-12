@@ -13,10 +13,12 @@ import io.dataease.utils.Md5Utils;
 import io.dataease.utils.RsaUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
 @Component
+@ConditionalOnProperty(prefix = "dataease.enhance", name = "enabled", havingValue = "false", matchIfMissing = true)
 @ConditionalOnMissingBean(name = "loginServer")
 @RestController
 @RequestMapping
