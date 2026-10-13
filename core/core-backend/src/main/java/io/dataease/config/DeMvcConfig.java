@@ -1,6 +1,8 @@
 package io.dataease.config;
 
 import io.dataease.constant.AuthConstant;
+import io.dataease.enhance.EnhanceNativeIdentityGuard;
+import org.springframework.beans.factory.annotation.Autowired;
 import io.dataease.share.interceptor.LinkInterceptor;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +18,9 @@ public class DeMvcConfig implements WebMvcConfigurer {
 
     @Resource
     private LinkInterceptor linkInterceptor;
+
+    @Autowired(required = false)
+    private EnhanceNativeIdentityGuard enhanceNativeIdentityGuard;
 
     /**
      * Configuring static resource path
@@ -51,5 +56,9 @@ public class DeMvcConfig implements WebMvcConfigurer {
         String uploadPattern = ensureBoth(URL_SEPARATOR + UPLOAD_URL_PREFIX, AuthConstant.DE_API_PREFIX, URL_SEPARATOR) + "**";
         registry.addInterceptor(new StaticResourceSecurityInterceptor()).addPathPatterns(uploadPattern);
         registry.addInterceptor(linkInterceptor).addPathPatterns("/**");
+        // Check the native user ID after upstream MVC interceptors have run.
+        if (enhanceNativeIdentityGuard != null) {
+            registry.addInterceptor(enhanceNativeIdentityGuard).addPathPatterns("/**");
+        }
     }
 }

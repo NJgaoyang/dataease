@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -23,7 +24,14 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
             "/login/localLogin", "/dekey", "/model", "/sysParameter/ui",
             "/sysParameter/defaultLogin", "/favicon.ico");
     private final EnhanceIdentityService identity;
+    private EnhanceNativeIdentity nativeIdentity;
+
     public EnhanceTokenFilter(EnhanceIdentityService identity) { this.identity = identity; }
+
+    @Autowired(required = false)
+    public void setNativeIdentity(EnhanceNativeIdentity nativeIdentity) {
+        this.nativeIdentity = nativeIdentity;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -67,16 +75,23 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
             String token = request.getHeader("X-DE-TOKEN");
             EnhanceSession.Identity principal = identity.verify(token);
             EnhanceSession.set(principal);
-            String path = request.getRequestURI().substring(request.getContextPath().length());
-            if (path.startsWith("/de2api/")) path = path.substring("/de2api".length());
-            // Community core lacks the XPack per-resource authorization integration.
-            // Until the core query chain is wired to EnhanceAcl, deny its endpoints for
-            // non-system administrators instead of accidentally inheriting admin access.
-            if (!principal.superAdmin() && !limitedNonAdminEndpoint(path)) {
-                throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
-                        "Core resource authorization is not installed");
+            if (nativeIdentity == null) {
+                throw new ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Native user identity integration is unavailable");
             }
-            chain.doFilter(request, response);
+            // Bind to the native DataEase identity for every authenticated request, even
+            // if a later core service only reads V3UserUtil.getUid(). Restore on completion.
+            try (EnhanceNativeIdentity.Scope scope = nativeIdentity.enter(principal)) {
+                String path = request.getRequestURI().substring(request.getContextPath().length());
+                if (path.startsWith("/de2api/")) path = path.substring("/de2api".length());
+                // Core query exports cannot yet safely enforce row/column policies.
+                // Keep denying them for non-system administrators until proven safe.
+                if (!principal.superAdmin() && !limitedNonAdminEndpoint(path)) {
+                    throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
+                            "Core resource authorization is not installed");
+                }
+                chain.doFilter(request, response);
+            }
         } catch (ResponseStatusException e) {
             if (!response.isCommitted()) {
                 response.setStatus(e.getStatusCode().value());

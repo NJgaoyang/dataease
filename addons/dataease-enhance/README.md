@@ -199,3 +199,29 @@ The targeted EnhanceWebSocketAuthTest covers a valid token, missing token,
 invalid token and a session revoked through logoutEverywhere. Live SockJS
 transport, native V3 identity propagation, and origin configurations
 still require deployment-level integration tests before activation.
+
+### Native DataEase UID request scope (additional integration)
+
+EnhanceNativeIdentity is a small addon-owned interface. The core-backend
+provides EnhanceNativeIdentityAdapter using only the existing public
+V3UserUtil.getUid() / setUid(Long) calls. EnhanceTokenFilter verifies JWT,
+binds the native UID for the request and restores the previous value even
+on errors. If the native adapter bean is unavailable it returns HTTP 503
+instead of processing with the community fallback user identity.
+
+EnhanceNativeIdentityGuard is conditionally registered as the last MVC
+interceptor. It checks that the effective V3UserUtil UID still matches
+the JWT principal, returning 403 if another interceptor changed it.
+Both adapters are only active when dataease.enhance.enabled=true.
+
+Targeted core-backend tests cover nested/empty scope restoration, native
+identity mismatch rejection, an authenticated HTTP request and missing
+native adapter denial. The tests compile against a temporary isolated
+V3UserUtil stub because its class is not in this repository's open source.
+The real native implementation and servlet chain require integration
+testing in a complete DataEase build before enabling this feature.
+
+Full Maven compilation in the sparse checkout is currently blocked by
+missing core/core-frontend (when building core aggregator) or the absent
+com.mysema.maven:apt-maven-plugin:1.1.3 in offline cache (when invoking
+core-backend directly). Do not label the application build successful.

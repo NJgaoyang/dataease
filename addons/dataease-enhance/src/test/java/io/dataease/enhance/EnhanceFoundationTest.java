@@ -173,6 +173,7 @@ class EnhanceFoundationTest {
     @Test
     void apiFilterBlocksAnonymousAndNonAdminCoreQueries() throws Exception {
         var filter = new EnhanceTokenFilter(identity);
+        filter.setNativeIdentity(principal -> () -> {});
         var anonymous = new org.springframework.mock.web.MockHttpServletRequest("POST","/de2api/chart/data");
         var noToken = new org.springframework.mock.web.MockHttpServletResponse();
         filter.doFilter(anonymous,noToken,new org.springframework.mock.web.MockFilterChain());
