@@ -24,7 +24,7 @@ class EnhanceDatasetColumnPolicyTest {
         EnhanceSchema schema=new EnhanceSchema(jdbc,source,bcrypt,settings);
         schema.initialize();
         schema.initialize();
-        assertEquals(4,jdbc.queryForObject(
+        assertEquals(5,jdbc.queryForObject(
                 "SELECT COUNT(*) FROM de_ext_schema_version",Integer.class));
         EnhanceIdentityService identity=new EnhanceIdentityService(jdbc,bcrypt,settings);
         EnhanceAcl acl=new EnhanceAcl(jdbc);

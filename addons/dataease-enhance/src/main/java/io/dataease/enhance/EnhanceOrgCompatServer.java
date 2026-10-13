@@ -140,7 +140,8 @@ public class EnhanceOrgCompatServer {
                 "SELECT COUNT(*) FROM de_ext_menu_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?",
                 "SELECT COUNT(*) FROM de_ext_resource_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?",
                 "SELECT COUNT(*) FROM de_ext_resource_registry WHERE org_id=?",
-                "SELECT COUNT(*) FROM de_ext_dataset_column_allow c JOIN de_ext_role r ON r.id=c.role_id WHERE r.org_id=?")) {
+                "SELECT COUNT(*) FROM de_ext_dataset_column_allow c JOIN de_ext_role r ON r.id=c.role_id WHERE r.org_id=?",
+                "SELECT COUNT(*) FROM de_ext_dataset_row_eq x JOIN de_ext_role r ON r.id=x.role_id WHERE r.org_id=?")) {
             Integer count = jdbc.queryForObject(sql, Integer.class, oid);
             if (count != null && count > 0) return true;
         }

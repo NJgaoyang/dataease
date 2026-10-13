@@ -248,3 +248,30 @@ integration and full DataEase runtime tests are still required before enablement
 
 The V004 H2 test covers migration idempotence, ownership checks, unknown dataset
 rejection, union/deduplication of allowed fields and empty-allowlist behavior.
+
+### Strict row predicate policies (V005)
+
+V005__dataset_row_equal.sql stores organization-scoped role/dataset/field/value
+equality predicates. The endpoint PUT
+/enhance/permissions/roles/{roleId}/datasets/{datasetId}/rows
+accepts a nonempty list of {fieldId,value}. An authorized organization
+administrator may replace a role's predicates for an owned dataset; the
+admin cannot use field IDs from another dataset or an unknown field.
+
+EnhanceDatasetRowPolicy resolves every authorized predicate with the core
+EnhanceDatasetFieldLookupAdapter, verifying its actual datasetGroupId,
+ordinary text/numeric type, and available DataEase field metadata.
+Each equality condition becomes a native DataSetRowPermissionsTreeDTO passed
+through PermissionManage to WhereTree2Str for server-side SQL filtering.
+Multiple permitted values are OR-combined by the existing query engine.
+Missing/incomplete row rules, wrong organizations, wrong target UID or
+missing metadata adapter fail closed. Arbitrary raw SQL is not accepted.
+
+Normal BI GET/POST query and export routes remain blocked for non-system
+administrators by EnhanceTokenFilter while chart/screen/preview entry
+checks and the complete SQL execution path are under integration review.
+These backend DTO tests alone are NOT sufficient for production approval.
+
+Focused H2 regression verifies schema V005, foreign organization rejection,
+invalid field rejection, empty-scope rejection, duplicate deduplication,
+correct native filter object production and grant revocation.

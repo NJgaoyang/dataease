@@ -23,12 +23,12 @@ class EnhanceUserFlowTest {
         EnhanceSchema schema = new EnhanceSchema(jdbc,source,bcrypt,settings);
         schema.initialize();
         schema.initialize();
-        assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_schema_version",Integer.class));
+        assertEquals(5,jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_schema_version",Integer.class));
         // Reproduce a partially completed ALTER TABLE after a process interruption.
         jdbc.execute("ALTER TABLE de_ext_user DROP COLUMN phone");
         jdbc.update("DELETE FROM de_ext_schema_version WHERE version='V002'");
         schema.initialize();
-        assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_schema_version",Integer.class));
+        assertEquals(5,jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_schema_version",Integer.class));
         assertEquals(1,jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='DE_EXT_USER' AND COLUMN_NAME='PHONE'",
                 Integer.class));

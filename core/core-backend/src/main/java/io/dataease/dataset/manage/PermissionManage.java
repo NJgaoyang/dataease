@@ -13,6 +13,7 @@ import io.dataease.api.permissions.variable.dto.SysVariableValueDto;
 import io.dataease.api.permissions.variable.dto.SysVariableValueItem;
 import io.dataease.constant.ColumnPermissionConstants;
 import io.dataease.enhance.EnhanceDatasetColumnPolicy;
+import io.dataease.enhance.EnhanceDatasetRowPolicy;
 import io.dataease.enhance.EnhanceSession;
 import io.dataease.engine.trans.WhereTree2Str;
 import io.dataease.engine.utils.Utils;
@@ -48,6 +49,8 @@ public class PermissionManage {
     private DatasetTableFieldManage datasetTableFieldManage;
     @Autowired(required = false)
     private EnhanceDatasetColumnPolicy enhanceDatasetColumns;
+    @Autowired(required = false)
+    private EnhanceDatasetRowPolicy enhanceDatasetRows;
 
     private RowPermissionsApi getRowPermissionsApi() {
 
@@ -158,13 +161,16 @@ public class PermissionManage {
     }
 
     public List<DataSetRowPermissionsTreeDTO> getRowPermissionsTree(Long datasetId, Long user) {
-        // Row policy wiring is not complete. Never reinterpret an empty row-policy list
-        // as unrestricted data for an authenticated non-administrator.
+        // Use restrictive row filters built from addon-owned policies in enhanced mode.
+        // An absent adapter, missing dataset ID or empty policy MUST NOT mean full access.
         var principal = EnhanceSession.peek();
         if (enhanceDatasetColumns != null && principal != null && !principal.superAdmin()) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.FORBIDDEN,
-                    "Enhanced dataset row authorization is not yet available");
+            if (enhanceDatasetRows == null) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Enhanced row-policy adapter is unavailable");
+            }
+            return enhanceDatasetRows.forCurrentUser(datasetId,user);
         }
         // 获取当前数据集下，当前用户、角色、组织所有的行权限（非白名单，非禁用）
         List<DataSetRowPermissionsTreeDTO> records = rowPermissionsTree(datasetId, user);

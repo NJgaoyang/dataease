@@ -76,6 +76,14 @@ public class EnhanceSchema {
             jdbc.update("INSERT INTO de_ext_schema_version (version,applied_at) VALUES (?,?)",
                     "V004",System.currentTimeMillis());
         }
+        Integer rowScopesMigrated = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM de_ext_schema_version WHERE version=?",Integer.class,"V005");
+        if (rowScopesMigrated == null || rowScopesMigrated == 0) {
+            new ResourceDatabasePopulator(new ClassPathResource("db/enhance/V005__dataset_row_equal.sql"))
+                    .execute(dataSource);
+            jdbc.update("INSERT INTO de_ext_schema_version (version,applied_at) VALUES (?,?)",
+                    "V005",System.currentTimeMillis());
+        }
         // Bootstrap only an entirely fresh enhance store. No implicit or hard-coded password.
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user", Integer.class);
         if (count != null && count == 0) {
