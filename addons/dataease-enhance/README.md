@@ -225,3 +225,26 @@ Full Maven compilation in the sparse checkout is currently blocked by
 missing core/core-frontend (when building core aggregator) or the absent
 com.mysema.maven:apt-maven-plugin:1.1.3 in offline cache (when invoking
 core-backend directly). Do not label the application build successful.
+
+### Dataset column allowlist (V004)
+
+V004__dataset_column_allow.sql defines addon-owned role/dataset/field allowlists.
+The update endpoint PUT /enhance/permissions/roles/{roleId}/datasets/{datasetId}/columns
+requires organization-administrator rights for that role and verified dataset
+ownership from V003. An empty list explicitly removes all visible columns.
+
+EnhanceDatasetColumnPolicy.allowedColumns rejects missing dataset read grants;
+authorized users see the union of their role-specific allowed field IDs.
+The optional hook in core PermissionManage.filterColumnPermissions removes
+unlisted fields from the actual server-side projection and removes their
+associated column-masking metadata; this is not merely a frontend setting.
+
+Important boundary: DataEase row authorization remains incomplete. Its
+PermissionManage.getRowPermissionsTree rejects authenticated non-superadmins
+under the enhancement rather than returning an unrestricted empty policy.
+Normal BI getData and export endpoints remain blocked for non-system
+administrators at EnhanceTokenFilter. A complete row/column SQL enforcement
+integration and full DataEase runtime tests are still required before enablement.
+
+The V004 H2 test covers migration idempotence, ownership checks, unknown dataset
+rejection, union/deduplication of allowed fields and empty-allowlist behavior.

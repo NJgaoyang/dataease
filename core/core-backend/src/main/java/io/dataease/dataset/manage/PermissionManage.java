@@ -12,6 +12,8 @@ import io.dataease.api.permissions.user.vo.UserFormVO;
 import io.dataease.api.permissions.variable.dto.SysVariableValueDto;
 import io.dataease.api.permissions.variable.dto.SysVariableValueItem;
 import io.dataease.constant.ColumnPermissionConstants;
+import io.dataease.enhance.EnhanceDatasetColumnPolicy;
+import io.dataease.enhance.EnhanceSession;
 import io.dataease.engine.trans.WhereTree2Str;
 import io.dataease.engine.utils.Utils;
 import io.dataease.extensions.datasource.api.PluginManageApi;
@@ -44,6 +46,8 @@ public class PermissionManage {
     private ColumnPermissionsApi columnPermissionsApi = null;
     @Resource
     private DatasetTableFieldManage datasetTableFieldManage;
+    @Autowired(required = false)
+    private EnhanceDatasetColumnPolicy enhanceDatasetColumns;
 
     private RowPermissionsApi getRowPermissionsApi() {
 
@@ -94,6 +98,18 @@ public class PermissionManage {
             }
             result.add(field);
         });
+        // Under enhancement, the final projected fields are a server-side allowlist.
+        // Never rely on a frontend-selected column set to enforce column restrictions.
+        var identity = EnhanceSession.peek();
+        if (enhanceDatasetColumns != null && identity != null && !identity.superAdmin()) {
+            Set<Long> permitted = enhanceDatasetColumns.allowedColumns(datasetTableId);
+            result.removeIf(field -> field.getId() == null || !permitted.contains(field.getId()));
+            // Do not expose column metadata for fields removed from the projection.
+            Set<String> visibleNames = result.stream()
+                    .map(DatasetTableFieldDTO::getDataeaseName)
+                    .collect(Collectors.toSet());
+            desensitizationList.keySet().retainAll(visibleNames);
+        }
         return result;
     }
 
@@ -142,6 +158,14 @@ public class PermissionManage {
     }
 
     public List<DataSetRowPermissionsTreeDTO> getRowPermissionsTree(Long datasetId, Long user) {
+        // Row policy wiring is not complete. Never reinterpret an empty row-policy list
+        // as unrestricted data for an authenticated non-administrator.
+        var principal = EnhanceSession.peek();
+        if (enhanceDatasetColumns != null && principal != null && !principal.superAdmin()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Enhanced dataset row authorization is not yet available");
+        }
         // 获取当前数据集下，当前用户、角色、组织所有的行权限（非白名单，非禁用）
         List<DataSetRowPermissionsTreeDTO> records = rowPermissionsTree(datasetId, user);
         // 构建权限tree中的field，如果field不存在，置为null

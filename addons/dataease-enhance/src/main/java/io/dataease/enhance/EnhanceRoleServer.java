@@ -101,6 +101,7 @@ public class EnhanceRoleServer {
                 "SELECT user_id FROM de_ext_user_role WHERE role_id=?", Long.class, rid);
         jdbc.update("DELETE FROM de_ext_menu_acl WHERE role_id=?", rid);
         jdbc.update("DELETE FROM de_ext_resource_acl WHERE role_id=?", rid);
+        jdbc.update("DELETE FROM de_ext_dataset_column_allow WHERE role_id=?", rid);
         jdbc.update("DELETE FROM de_ext_user_role WHERE role_id=?", rid);
         jdbc.update("DELETE FROM de_ext_role WHERE id=?", rid);
         userIds.forEach(user -> jdbc.update(
