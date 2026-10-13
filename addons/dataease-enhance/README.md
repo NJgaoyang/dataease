@@ -186,3 +186,16 @@ this feature flag on a public or production instance.
 Isolated module regression: 15 focused H2 tests (11 foundational, one each
 for user lifecycle, ownership, native permission adapter and org members).
 The Maven reactor build remains blocked by unavailable upstream dependencies.
+
+### WebSocket authentication compatibility
+
+The community WsConfig fallback WebSocketAuthService is now registered only
+when dataease.enhance.enabled=false. Enabling the independent module selects
+EnhanceWebSocketConfiguration explicitly rather than relying on Spring bean
+registration order. The enhancement authenticates socket handshakes using
+the same verified JWT/session revocation logic as REST requests.
+
+The targeted EnhanceWebSocketAuthTest covers a valid token, missing token,
+invalid token and a session revoked through logoutEverywhere. Live SockJS
+transport, native V3 identity propagation, and origin configurations
+still require deployment-level integration tests before activation.

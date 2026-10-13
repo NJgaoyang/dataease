@@ -8,6 +8,7 @@ import io.dataease.websocket.handler.DeHandshakeInterceptor;
 import io.dataease.websocket.handler.PrincipalHandshakeHandler;
 import jakarta.annotation.Resource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -30,6 +31,8 @@ public class WsConfig implements WebSocketMessageBrokerConfigurer {
 
     @Bean
     @ConditionalOnMissingBean(WebSocketAuthService.class)
+    @ConditionalOnProperty(prefix = "dataease.enhance", name = "enabled",
+            havingValue = "false", matchIfMissing = true)
     public WebSocketAuthService webSocketAuthService() {
         return new CommunityWebSocketAuthService();
     }
