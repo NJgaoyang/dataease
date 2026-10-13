@@ -147,7 +147,8 @@ public class EnhanceAdminController {
                 "SELECT COUNT(*) FROM de_ext_role WHERE org_id=? AND system_role=0",
                 "SELECT COUNT(*) FROM de_ext_user_role ur JOIN de_ext_role r ON r.id=ur.role_id WHERE r.org_id=?",
                 "SELECT COUNT(*) FROM de_ext_menu_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?",
-                "SELECT COUNT(*) FROM de_ext_resource_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?")) {
+                "SELECT COUNT(*) FROM de_ext_resource_acl a JOIN de_ext_role r ON r.id=a.role_id WHERE r.org_id=?",
+                "SELECT COUNT(*) FROM de_ext_resource_registry WHERE org_id=?")) {
             Integer count=jdbc.queryForObject(sql,Integer.class,id);
             if(count!=null && count>0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Organization is not empty");
         }
@@ -250,21 +251,42 @@ public class EnhanceAdminController {
     @Transactional
     @PutMapping("/roles/{id}/resources")
     public void replaceResources(@PathVariable long id,@RequestBody List<Grant> grants) {
-        acl.requireSystemAdmin();customRole(id);
-        if(grants==null || grants.size()>2000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        jdbc.update("DELETE FROM de_ext_resource_acl WHERE role_id=?",id);
-        var unique=new HashSet<String>();
-        for(Grant g:grants) {
-            String type=nonblank(g.resourceType(),80);
-            String rid=nonblank(g.resourceId(),128);
-            String action=nonblank(g.action(),32);
-            if(!Set.of("read","manage","export").contains(action))
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid action");
-            if(unique.add(type+"|"+rid+"|"+action)) {
-                jdbc.update("INSERT INTO de_ext_resource_acl (role_id,resource_type,resource_id,action) VALUES (?,?,?,?)",id,type,rid,action);
-            }
-        }
+        acl.requireSystemAdmin();
+        if (grants == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        acl.replaceRoleResources(id,grants.stream().map(
+                grant -> new EnhanceAcl.Grant(grant.resourceType(),grant.resourceId(),grant.action())).toList());
         audit("RESOURCE_ACL",String.valueOf(id));
+    }
+
+    public record ResourceRegistration(String resourceType,String resourceId,long orgId) {}
+
+    /**
+     * Platform administrators explicitly register which organization owns a BI resource.
+     * Does NOT pretend to verify upstream BI metadata; that requires core integration.
+     */
+    @Transactional
+    @PostMapping("/resources/register")
+    public void registerResource(@RequestBody ResourceRegistration resource) {
+        acl.requireSystemAdmin();
+        if (resource == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        String type=nonblank(resource.resourceType(),80).toLowerCase(Locale.ROOT);
+        String rid=nonblank(resource.resourceId(),128);
+        if (!Set.of("dashboard","screen","dataset","datasource","folder").contains(type))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported resource type");
+        countMustBeOne("SELECT COUNT(*) FROM de_ext_org WHERE id=? AND enabled=1",resource.orgId());
+        List<Long> existing = jdbc.queryForList(
+                "SELECT org_id FROM de_ext_resource_registry WHERE resource_type=? AND resource_id=?",
+                Long.class,type,rid);
+        if (!existing.isEmpty()) {
+            if (!existing.get(0).equals(resource.orgId()))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Resource already belongs to a different organization");
+            return;
+        }
+        jdbc.update("INSERT INTO de_ext_resource_registry " +
+                "(resource_type,resource_id,org_id,registered_at) VALUES (?,?,?,?)",
+                type,rid,resource.orgId(),System.currentTimeMillis());
+        audit("RESOURCE_REGISTER",type+":"+rid+":"+resource.orgId());
     }
 
     @GetMapping("/audit")

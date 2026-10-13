@@ -121,6 +121,34 @@ public class EnhanceOrgGovernanceController {
         audit("ORG_MEMBER_ROLES", request.orgId() + ":" + request.userId());
     }
 
+    @Transactional
+    @PutMapping("/roles/{id}/resources")
+    public void replaceRoleResources(@PathVariable long id,@RequestBody List<EnhanceAcl.Grant> grants) {
+        acl.replaceRoleResources(id,grants);
+        audit("ORG_RESOURCE_ACL",String.valueOf(id));
+    }
+
+    @Transactional
+    @PutMapping("/roles/{id}/menus")
+    public void replaceRoleMenus(@PathVariable long id,@RequestBody List<String> menus) {
+        List<Map<String,Object>> roles=jdbc.queryForList(
+                "SELECT org_id,code FROM de_ext_role WHERE id=?",id);
+        if(roles.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        var role=roles.get(0);
+        long oid=((Number)role.get("org_id")).longValue();
+        acl.requireOrgAdmin(oid);
+        if("SYS_ADMIN".equals(String.valueOf(role.get("code"))))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if(menus==null || menus.size()>500 || menus.stream().anyMatch(
+                code -> code==null || code.isBlank() || code.length()>128))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        jdbc.update("DELETE FROM de_ext_menu_acl WHERE role_id=?",id);
+        for(String code:new HashSet<>(menus)) {
+            jdbc.update("INSERT INTO de_ext_menu_acl(role_id,menu_code) VALUES (?,?)",id,code.trim());
+        }
+        audit("ORG_MENU_ACL",String.valueOf(id));
+    }
+
     private void audit(String action, String subject) {
         jdbc.update("INSERT INTO de_ext_audit(id,actor_id,action,subject,created_at) VALUES (?,?,?,?,?)",
                 ids.next(), EnhanceSession.current().userId(), action, subject, System.currentTimeMillis());

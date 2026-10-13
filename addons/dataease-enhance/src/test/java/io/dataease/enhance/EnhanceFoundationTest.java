@@ -66,6 +66,9 @@ class EnhanceFoundationTest {
         jdbc.update("INSERT INTO de_ext_membership (user_id,org_id) VALUES (?,?)",userId,1L);
         jdbc.update("INSERT INTO de_ext_role (id,org_id,code,name,system_role) VALUES (?,?,?,?,0)",roleId,1L,"TEST_ROLE","Tester");
         jdbc.update("INSERT INTO de_ext_user_role (user_id,role_id) VALUES (?,?)",userId,roleId);
+        jdbc.update("INSERT INTO de_ext_resource_registry " +
+                "(resource_type,resource_id,org_id,registered_at) VALUES (?,?,?,?)",
+                "dashboard","42",1L,System.currentTimeMillis());
         jdbc.update("INSERT INTO de_ext_resource_acl (role_id,resource_type,resource_id,action) VALUES (?,?,?,?)",
                 roleId,"dashboard","42","read");
         try {

@@ -132,3 +132,27 @@ Soft deletion revokes user sessions and memberships while retaining historic BI 
 Under enhanced mode, unauthenticated unsigned share/embed requests are intentionally blocked until their signing/authorization path has been integration tested. Core dataset and chart authorizations remain blocked for non-system administrators and are NOT fully integrated.
 
 Tests include EnhanceUserFlowTest for a partial V002 migration restart, one-time credential issuance and deleted-user session revocation. Full Maven build remains blocked by absent upstream proprietary/custom dependencies. Keep dataease.enhance.enabled=false on public production deployments.
+
+### Resource ownership (V003)
+
+The V003__resource_ownership.sql migration creates de_ext_resource_registry, with a
+unique (resource_type,resource_id) and a single owning organization. Only a
+system administrator can register ownership, using POST
+/enhance/admin/resources/register. Reassigning a resource to a different
+organization is not supported by that endpoint; it returns a conflict.
+
+Organization administrators may manage permissions of roles belonging to
+their own organization through PUT /enhance/org/roles/{id}/menus and
+PUT /enhance/org/roles/{id}/resources. Every resource grant is validated
+against registered ownership before any existing role grants are replaced.
+Unregistered resources and cross-organization grants are rejected.
+
+Important: registration is maintained by a trusted system administrator and
+does not yet automatically inspect upstream DataEase resource ownership.
+Non-admin access to upstream dataset/chart/export APIs remains denied by
+EnhanceTokenFilter until the entire query chain and row/column permissions
+have been integrated and tested. This module is not a production-ready
+replacement for the proprietary DataEase permission engine.
+
+Latest isolated verification: 13 focused H2 JUnit tests (11 foundation,
+1 user flow, 1 cross-organization resource ownership) completed successfully.
