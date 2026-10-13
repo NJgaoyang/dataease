@@ -51,6 +51,7 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
                     "/user/modifyPwd", "/org/page/lazyTree",
                     "/org/logScope", "/org/subOrgs", "/logout", "/login/refresh").contains(path) ||
                 path.startsWith("/user/switch/") ||
+                path.startsWith("/sys/org/member/") ||
                 path.startsWith("/role/queryWithOid/") ||
                 path.startsWith("/role/detail/") ||
                 path.startsWith("/role/delete/") ||

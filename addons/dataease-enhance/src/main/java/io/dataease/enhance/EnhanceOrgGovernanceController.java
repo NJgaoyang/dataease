@@ -102,12 +102,17 @@ public class EnhanceOrgGovernanceController {
                 "SELECT COUNT(*) FROM de_ext_role WHERE id=? AND code='ORG_ADMIN'", Integer.class, role) > 0)
                 && roles.stream().noneMatch(role -> jdbc.queryForObject(
                 "SELECT COUNT(*) FROM de_ext_role WHERE id=? AND code='ORG_ADMIN'", Integer.class, role) > 0);
-        if (removesOrgAdmin && request.userId() == EnhanceSession.current().userId()) {
+        if (removesOrgAdmin) {
             Integer admins = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM de_ext_user_role ur JOIN de_ext_role r ON r.id=ur.role_id " +
-                    "WHERE r.org_id=? AND r.code='ORG_ADMIN'", Integer.class, request.orgId());
+                    "SELECT COUNT(DISTINCT ur.user_id) FROM de_ext_user_role ur " +
+                    "JOIN de_ext_role r ON r.id=ur.role_id " +
+                    "JOIN de_ext_membership m ON m.user_id=ur.user_id AND m.org_id=r.org_id " +
+                    "JOIN de_ext_user u ON u.id=ur.user_id " +
+                    "WHERE r.org_id=? AND r.code='ORG_ADMIN' AND u.enabled=1 AND u.deleted=0",
+                    Integer.class, request.orgId());
             if (admins != null && admins <= 1) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot remove the final organization administrator");
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Cannot remove the final active organization administrator");
             }
         }
 

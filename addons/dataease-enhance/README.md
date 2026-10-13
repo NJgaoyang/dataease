@@ -156,3 +156,33 @@ replacement for the proprietary DataEase permission engine.
 
 Latest isolated verification: 13 focused H2 JUnit tests (11 foundation,
 1 user flow, 1 cross-organization resource ownership) completed successfully.
+
+### Original CorePermissionManage integration and organization-member APIs
+
+The community CorePermissionManage default still returns true if the independent
+enhancement is disabled. When enabled, its optional EnhanceCoreAuthorization
+delegate checks current authenticated request identity, registered resource owner
+and matching role grant. DATASET/dataset, PANEL/dashboard, SCREEN/screen and
+DATASOURCE/datasource are mapped; unknown resource types and auth actions fail
+closed. The existing XpackInteract annotation is preserved; proprietary code
+and license validation are never modified.
+
+The V3 compatibility controller /sys/org/member supports page, candidates,
+roleOptions, add, switchRole and remove. System administrators may enumerate
+users and invite them to an organization. Organization administrators may
+manage members of their own organization, but cannot enumerate unrelated
+accounts, grant SYS_ADMIN or remove the final active organization administrator.
+64-bit IDs are serialized to the frontend as strings.
+
+Important limitations: (1) The V3UserUtil/native request identity is implemented
+outside this open repository and has not been integrated or verified.
+(2) Underlying dataset row/column permissions are not enforced by the
+new ACL alone. Therefore existing EnhanceTokenFilter still denies the
+normal BI query/export endpoints for non-system administrators even when
+their ACL role has resource read permission. (3) Share/embed and background
+scheduled-job permissions require separate integration tests. Do not enable
+this feature flag on a public or production instance.
+
+Isolated module regression: 15 focused H2 tests (11 foundational, one each
+for user lifecycle, ownership, native permission adapter and org members).
+The Maven reactor build remains blocked by unavailable upstream dependencies.
