@@ -37,7 +37,7 @@ public class EnhanceIdentityService {
         // A constant-time bcrypt comparison is performed even for unknown users.
         String dummyHash = "$2a$12$C6UzMDM.H6dfI/f/IKcEeOxYtB6GNTT0G2v7G7OSfHiXKb8rqLoW2";
         List<Map<String,Object>> matches = jdbc.queryForList(
-                 "SELECT * FROM de_ext_user WHERE account = ?",
+                 "SELECT * FROM de_ext_user WHERE account = ? AND deleted=0",
                 account == null ? "" : account.trim().toLowerCase(java.util.Locale.ROOT));
         if (matches.isEmpty()) {
             bcrypt.matches(password == null ? "" : password, dummyHash);
@@ -47,6 +47,10 @@ public class EnhanceIdentityService {
         long id = asLong(user.get("id"));
         if (asLong(user.get("enabled")) != 1 || asLong(user.get("locked_until")) > System.currentTimeMillis()) {
             throw unauthenticated();
+        }
+        if (asLong(user.get("locked_until")) != 0L &&
+                asLong(user.get("locked_until")) <= System.currentTimeMillis()) {
+            jdbc.update("UPDATE de_ext_user SET failed_attempts=0,locked_until=0 WHERE id=?", id);
         }
         boolean valid = password != null && bcrypt.matches(password, String.valueOf(user.get("password_hash")));
         if (!valid) {
@@ -108,7 +112,7 @@ public class EnhanceIdentityService {
     }
 
     public Map<String,Object> getEnabledUser(long id) {
-        List<Map<String,Object>> users = jdbc.queryForList("SELECT * FROM de_ext_user WHERE id=? AND enabled=1", id);
+        List<Map<String,Object>> users = jdbc.queryForList("SELECT * FROM de_ext_user WHERE id=? AND enabled=1 AND deleted=0", id);
         if (users.isEmpty()) throw unauthenticated();
         return users.get(0);
     }

@@ -51,7 +51,7 @@ public class EnhanceAdminController {
     @GetMapping("/users")
     public List<Map<String,Object>> users() {
         acl.requireSystemAdmin();
-        return jdbc.queryForList("SELECT id,account,display_name,enabled,locked_until,created_at FROM de_ext_user ORDER BY created_at DESC");
+        return jdbc.queryForList("SELECT id,account,display_name,email,phone,enabled,locked_until,created_at FROM de_ext_user WHERE deleted=0 ORDER BY created_at DESC");
     }
 
     @Transactional
@@ -81,7 +81,7 @@ public class EnhanceAdminController {
     public void toggle(@PathVariable long id,@RequestBody Toggle request) {
         acl.requireSystemAdmin();
         if(id==1L && !request.enabled()) throw new ResponseStatusException(HttpStatus.CONFLICT,"Bootstrap admin must remain enabled");
-        countMustBeOne("SELECT COUNT(*) FROM de_ext_user WHERE id=?",id);
+        countMustBeOne("SELECT COUNT(*) FROM de_ext_user WHERE id=? AND deleted=0",id);
         jdbc.update("UPDATE de_ext_user SET enabled=?,token_version=token_version+1 WHERE id=?",request.enabled()?1:0,id);
         audit("USER_STATUS",String.valueOf(id));
     }
@@ -92,10 +92,28 @@ public class EnhanceAdminController {
         acl.requireSystemAdmin();
         if(request.password()==null || request.password().length()<12)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Password must have 12+ characters");
-        countMustBeOne("SELECT COUNT(*) FROM de_ext_user WHERE id=?",id);
+        countMustBeOne("SELECT COUNT(*) FROM de_ext_user WHERE id=? AND deleted=0",id);
         jdbc.update("UPDATE de_ext_user SET password_hash=?,failed_attempts=0,locked_until=0,token_version=token_version+1 WHERE id=?",
                 encoder.encode(request.password()),id);
         audit("USER_PASSWORD_RESET",String.valueOf(id));
+    }
+
+    /**
+     * Soft deletion preserves historic BI ownership references and removes active sessions.
+     * The account name remains reserved to avoid accidentally reusing an identity.
+     */
+    @Transactional
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@PathVariable long id) {
+        acl.requireSystemAdmin();
+        if (id == 1L || id == EnhanceSession.current().userId()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot remove administrator account");
+        }
+        countMustBeOne("SELECT COUNT(*) FROM de_ext_user WHERE id=? AND deleted=0",id);
+        jdbc.update("UPDATE de_ext_user SET deleted=1,enabled=0,token_version=token_version+1 WHERE id=?",id);
+        jdbc.update("DELETE FROM de_ext_user_role WHERE user_id=?",id);
+        jdbc.update("DELETE FROM de_ext_membership WHERE user_id=?",id);
+        audit("USER_DELETE",String.valueOf(id));
     }
 
     @GetMapping("/orgs")

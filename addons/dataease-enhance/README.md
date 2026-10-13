@@ -118,3 +118,17 @@ metadata; broader organization/resource migrations still need explicit integrati
 The isolated H2 regression suite now includes 11 focused tests,
 including HTTP filter checks for anonymous/ordinary users and a
 nonempty-organization deletion guard.
+
+### User management compatibility (V002)
+
+The additive V002__user_profile_and_soft_delete.sql describes email, telephone and a soft-delete marker. The Java migration runner checks columns before each ALTER TABLE and marks the version only after completion, making partial ALTER retries safe. Run a database backup and test-environment dry run before activation.
+
+Existing V3 user URLs now support user/member pagination, query by ID, create, edit, enable/disable, soft delete, unlock and password modification. Platform user creation/disable/delete is for system administrators only; organization administrators may edit eligible members but cannot assign the global SYS_ADMIN privilege.
+
+POST /user/create generates an independent 32-character initial password and returns it once with a DE_ENHANCE_ONETIME: prefix and Cache-Control: no-store. The UI shows this in a modal only once. /user/defaultPwd no longer returns a real password. Secure delivery to the new user is the administrator's responsibility.
+
+Soft deletion revokes user sessions and memberships while retaining historic BI ownership references and reserving the account name.
+
+Under enhanced mode, unauthenticated unsigned share/embed requests are intentionally blocked until their signing/authorization path has been integration tested. Core dataset and chart authorizations remain blocked for non-system administrators and are NOT fully integrated.
+
+Tests include EnhanceUserFlowTest for a partial V002 migration restart, one-time credential issuance and deleted-user session revocation. Full Maven build remains blocked by absent upstream proprietary/custom dependencies. Keep dataease.enhance.enabled=false on public production deployments.

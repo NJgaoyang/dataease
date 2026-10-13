@@ -4,7 +4,7 @@ import icon_info_colorful from '@/assets/svg/icon_info_colorful.svg'
 import icon_deleteTrash_outlined from '@/assets/svg/icon_delete-trash_outlined.svg'
 import { ref, reactive, onMounted, computed, onBeforeUnmount, h } from 'vue'
 import useClipboard from 'vue-clipboard3'
-import { ElMessage, ElLoading } from 'element-plus-secondary'
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus-secondary'
 import { Icon } from '@/components/icon-custom'
 import { useI18n } from '@/hooks/web/useI18n'
 import type { FormInstance, FormRules } from 'element-plus-secondary'
@@ -353,7 +353,26 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       method(param)
         .then(res => {
           if (!res.msg) {
-            ElMessage.success(t('common.save_success'))
+            const oneTimePassword =
+              formType.value === 'add' &&
+              typeof res?.data === 'string' &&
+              res.data.startsWith('DE_ENHANCE_ONETIME:')
+                ? res.data.slice('DE_ENHANCE_ONETIME:'.length)
+                : ''
+            if (oneTimePassword) {
+              void ElMessageBox.alert(
+                `账号：${state.form.account}，初始密码：${oneTimePassword}。此密码仅显示一次，请妥善保存。`,
+                '新用户凭据',
+                {
+                  confirmButtonText: '已保存',
+                  showClose: false,
+                  closeOnClickModal: false,
+                  closeOnPressEscape: false
+                }
+              )
+            } else {
+              ElMessage.success(t('common.save_success'))
+            }
             if (formType.value === 'modify' && state.form.id === curUid.value) {
               userStore.setUser()
             }
@@ -535,7 +554,7 @@ onBeforeUnmount(() => {
     @open="addKeyDown"
     @close="removeKeyDown"
   >
-    <div v-if="formType === 'add'" class="editor-form-title flex-align-center">
+    <div v-if="formType === 'add' && defaultPWD !== '创建成功后生成独立初始密码'" class="editor-form-title flex-align-center">
       <el-icon>
         <Icon name="icon_info_colorful"><icon_info_colorful class="svg-icon" /></Icon>
       </el-icon>

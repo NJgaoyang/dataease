@@ -30,10 +30,12 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         if (path.startsWith("/de2api/")) path = path.substring("/de2api".length());
         if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || PUBLIC.contains(path)) return true;
-        // Asset routes and explicitly signed external link routes are not interactive sessions.
-        if (path.equals("/") || path.endsWith(".html") || path.startsWith("/assets/") ||
-            path.startsWith("/static/") || path.startsWith("/de-link/") ||
-            path.startsWith("/chart-view/") || path.startsWith("/websocket")) return true;
+        // Only expected public SPA entrypoints and static assets are exempt.
+        // Share/embed URLs remain protected until upstream signed-link checks are
+        // integrated and verified with the enhancement's identity flow.
+        if (path.equals("/") || path.equals("/index.html") || path.equals("/panel.html") ||
+            path.equals("/mobile.html") || path.startsWith("/assets/") ||
+            path.startsWith("/static/") || path.startsWith("/websocket")) return true;
         // API endpoints always require login, including non-de2api development routes.
         return path.matches("^/[^/]+\\.(?:js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$");
     }
@@ -43,9 +45,16 @@ public class EnhanceTokenFilter extends OncePerRequestFilter {
                 java.util.Set.of("/user/info", "/user/personInfo", "/user/ipInfo",
                     "/user/orgAdmin", "/org/mounted", "/org/page/tree",
                     "/menu/query", "/role/query", "/sysParameter/defaultSettings",
+                    "/role/user/option", "/role/user/selected",
+                    "/role/create", "/role/edit", "/role/mountUser",
+                    "/role/unMountUser", "/user/edit", "/user/personEdit",
+                    "/user/modifyPwd", "/org/page/lazyTree",
                     "/org/logScope", "/org/subOrgs", "/logout", "/login/refresh").contains(path) ||
                 path.startsWith("/user/switch/") ||
                 path.startsWith("/role/queryWithOid/") ||
+                path.startsWith("/role/detail/") ||
+                path.startsWith("/role/delete/") ||
+                path.startsWith("/user/queryById/") ||
                 path.startsWith("/user/mumberPager/") ||
                 path.startsWith("/user/pager/");
     }

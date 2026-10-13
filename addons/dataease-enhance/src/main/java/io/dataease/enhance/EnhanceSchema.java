@@ -53,6 +53,13 @@ public class EnhanceSchema {
             jdbc.update("INSERT INTO de_ext_schema_version (version,applied_at) VALUES (?,?)",
                     "V001",System.currentTimeMillis());
         }
+        Integer userProfileMigrated = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM de_ext_schema_version WHERE version=?",Integer.class,"V002");
+        if (userProfileMigrated == null || userProfileMigrated == 0) {
+            applyUserProfileMigration();
+            jdbc.update("INSERT INTO de_ext_schema_version (version,applied_at) VALUES (?,?)",
+                    "V002",System.currentTimeMillis());
+        }
         // Bootstrap only an entirely fresh enhance store. No implicit or hard-coded password.
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM de_ext_user", Integer.class);
         if (count != null && count == 0) {
@@ -71,4 +78,28 @@ public class EnhanceSchema {
                     2L, 1L, "ORG_ADMIN", "组织管理员", 1);
         }
     }
+    /**
+     * V002 is idempotent per column, not merely per migration version.
+     * A crash halfway through ALTER TABLE can safely resume on restart.
+     * The resource SQL describes the same additive schema for review.
+     */
+    private void applyUserProfileMigration() {
+        var metadata = jdbc.queryForRowSet("SELECT * FROM de_ext_user WHERE 1=0").getMetaData();
+        var existing = new java.util.HashSet<String>();
+        for (int i = 1; i <= metadata.getColumnCount(); i++) {
+            existing.add(metadata.getColumnName(i).toLowerCase(java.util.Locale.ROOT));
+        }
+        var required = new java.util.LinkedHashMap<String,String>();
+        required.put("email","VARCHAR(255)");
+        required.put("phone_prefix","VARCHAR(16)");
+        required.put("phone","VARCHAR(64)");
+        required.put("deleted","INTEGER NOT NULL DEFAULT 0");
+        for (var column : required.entrySet()) {
+            if (!existing.contains(column.getKey())) {
+                jdbc.execute("ALTER TABLE de_ext_user ADD COLUMN " +
+                        column.getKey() + " " + column.getValue());
+            }
+        }
+    }
+
 }
